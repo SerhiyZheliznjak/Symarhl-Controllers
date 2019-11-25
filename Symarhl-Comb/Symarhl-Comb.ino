@@ -134,9 +134,10 @@ void demo() {
 void loop() {
   unsigned long currentTime = millis();
   if (currentTime - previousTime > interval) {
+    verifyMqttConnection();
     previousTime = currentTime;
     heatingControl();
-    verifyMqttConnection();
+    
   }
   listenMqtt();
 }
