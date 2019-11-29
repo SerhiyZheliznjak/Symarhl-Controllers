@@ -21,10 +21,10 @@
 
 // VARIABLES
 float interval = 20000;
-float studioTemp = 21;
-float bathroomTemp = 21;
-float kidsroomTemp = 21;
-float bedroomTemp = 21;
+float studioTemp = 21.5;
+float bathroomTemp = 21,5;
+float kidsroomTemp = 21.5;
+float bedroomTemp = 21.5;
 float hysteresis = 0.3;
 // PRIVATE
 long previousTime = 0;
