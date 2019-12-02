@@ -22,7 +22,7 @@
 // VARIABLES
 float interval = 20000;
 float studioTemp = 21.5;
-float bathroomTemp = 21,5;
+float bathroomTemp = 21.5;
 float kidsroomTemp = 21.5;
 float bedroomTemp = 21.5;
 float hysteresis = 0.3;
@@ -50,8 +50,6 @@ const char kidsroomTempTopic[] = "temp/kidsroom";
 const char bedroomTempTopic[] = "temp/bedroom";
 const char powerTopic[] = "power";
 const char variablesTopic[] = "variables";
-// REQUEST
-const char getVariablesTopic[] = "get/variables";
 // SET
 // COMMON
 const char confirmTopic[] = "set/confirmation";
@@ -137,7 +135,8 @@ void loop() {
     verifyMqttConnection();
     previousTime = currentTime;
     heatingControl();
-    
+    sendPowerMessage();
+    sendVariablesMessage();
   }
   listenMqtt();
 }
@@ -161,7 +160,7 @@ void heatingControl() {
     turnOn(PUMP_PIN);
   }
 
-  sendPowerMessage();
+
 }
 
 void controlRoomTemp(const uint8_t roomId[], const char outTopic[], uint8_t pin, float minTemp) {
@@ -185,6 +184,17 @@ void sendPowerMessage() {
   powerMessage += "bedroom=" + String(isOn(BEDROOM_PIN));
 
   sendMQTTMessage(powerTopic, powerMessage);
+}
+
+void sendVariablesMessage() {
+  String response = String(setStudioTempTopic) + "=" + String(studioTemp) + ";";
+  response += String(setBathroomTempTopic) + "=" + String(bathroomTemp) + ";";
+  response += String(setKidsroomTempTopic) + "=" + String(kidsroomTemp) + ";";
+  response += String(setBedroomTempTopic) + "=" + String(bedroomTemp) + ";";
+  response += String(setHysteresisTopic) + "=" + String(hysteresis) + ";";
+  response += String(setIntervalTopic) + "=" + String(interval);
+
+  sendMQTTMessage(variablesTopic, response);
 }
 
 boolean isOn(uint8_t pin) {
@@ -253,17 +263,6 @@ void listenMqtt() {
     if (isEqual(recievedTopic, setIntervalTopic)) {
       interval = payload.toInt();
       sendMQTTMessage(confirmTopic, String(setIntervalTopic) + "=" + String(interval));
-    }
-
-    if (isEqual(recievedTopic, getVariablesTopic)) {
-      String response = String(setStudioTempTopic) + "=" + String(studioTemp) + ";";
-      response += String(setBathroomTempTopic) + "=" + String(bathroomTemp) + ";";
-      response += String(setKidsroomTempTopic) + "=" + String(kidsroomTemp) + ";";
-      response += String(setBedroomTempTopic) + "=" + String(bedroomTemp) + ";";
-      response += String(setHysteresisTopic) + "=" + String(hysteresis) + ";";
-      response += String(setIntervalTopic) + "=" + String(interval);
-
-      sendMQTTMessage(variablesTopic, response);
     }
   }
 }
