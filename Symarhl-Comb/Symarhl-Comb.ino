@@ -229,6 +229,7 @@ void mqttConnect() {
     Serial.println(mqttClient.connectError());
   } else {
     mqttClient.subscribe("set/#");
+    mqttClient.subscribe("thewall");
   }
 }
 
