@@ -85,11 +85,10 @@ void setup() {
     attempts++;
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {
     mqttConnect();
     sendMQTTMessage(startTopic, "pump-controller");
   }
-
 }
 
 void setupRelayPins() {
@@ -148,23 +147,34 @@ boolean areAllPinsOff() {
 void heatingControl() {
   oneWireSensors.requestTemperatures();
 
-  controlRoomTemp(STUDIO_ID, studioTempTopic, STUDIO_PIN, studioTemp);
-  controlRoomTemp(BATHROOM_ID, bathroomTempTopic, BATHROOM_PIN, bathroomTemp);
-  controlRoomTemp(KIDSROOM_ID, kidsroomTempTopic, KIDSROOM_PIN, kidsroomTemp);
-  controlRoomTemp(BEDROOM_ID, bedroomTempTopic, BEDROOM_PIN, bedroomTemp);
+  float currentStudioTemp = oneWireSensors.getTempC(STUDIO_ID);
+  controlRoomTemp(currentStudioTemp, STUDIO_PIN, studioTemp);
 
+  float currentBathroomTemp = oneWireSensors.getTempC(BATHROOM_ID);
+  controlRoomTemp(currentBathroomTemp, BATHROOM_PIN, bathroomTemp);
+
+  float currentKidsroomTemp = oneWireSensors.getTempC(KIDSROOM_ID);
+  controlRoomTemp(currentKidsroomTemp, KIDSROOM_PIN, kidsroomTemp);
+
+  float currentBedroomTemp = oneWireSensors.getTempC(BEDROOM_ID);
+  controlRoomTemp(currentBedroomTemp, BEDROOM_PIN, bedroomTemp);
+
+  sendCurrentTemperatures(currentStudioTemp, currentBathroomTemp, currentKidsroomTemp, currentBedroomTemp);
 
   if (areAllPinsOff()) {
     turnOff(PUMP_PIN);
   } else {
     turnOn(PUMP_PIN);
   }
-
-
 }
 
-void controlRoomTemp(const uint8_t roomId[], const char outTopic[], uint8_t pin, float minTemp) {
-  float roomTemp = oneWireSensors.getTempC(roomId);
+void sendCurrentTemperatures(float currentStudioTemp, float currentBathroomTemp, float currentKidsroomTemp, float currentBedroomTemp) {
+  sendMQTTMessage(bathroomTempTopic, String(currentBathroomTemp));
+  sendMQTTMessage(kidsroomTempTopic, String(currentKidsroomTemp));
+  sendMQTTMessage(bedroomTempTopic, String(currentBedroomTemp));
+}
+
+void controlRoomTemp(float roomTemp, uint8_t pin, float minTemp) {
   if (roomTemp < minTemp) {
     turnOn(pin);
   }
@@ -172,7 +182,6 @@ void controlRoomTemp(const uint8_t roomId[], const char outTopic[], uint8_t pin,
   if (roomTemp >= minTemp + hysteresis) {
     turnOff(pin);
   }
-  sendMQTTMessage(outTopic, String(roomTemp));
 }
 
 void sendPowerMessage() {
@@ -218,8 +227,7 @@ void mqttConnect() {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
   } else {
-    mqttClient.subscribe("set/#");
-    mqttClient.subscribe("get/#");
+    mqttClient.subscribe("set/#");    
   }
 }
 
