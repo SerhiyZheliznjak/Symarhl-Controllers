@@ -51,6 +51,7 @@ const char bedroomTempTopic[] = "temp/bedroom";
 const char powerTopic[] = "power";
 const char variablesTopic[] = "variables";
 // SET
+const char theWallTopic[] = "thewall";
 // COMMON
 const char confirmTopic[] = "set/confirmation";
 const char setHysteresisTopic[] = "set/hysteresis";
@@ -227,7 +228,7 @@ void mqttConnect() {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
   } else {
-    mqttClient.subscribe("set/#");    
+    mqttClient.subscribe("set/#");
   }
 }
 
@@ -271,6 +272,14 @@ void listenMqtt() {
     if (isEqual(recievedTopic, setIntervalTopic)) {
       interval = payload.toInt();
       sendMQTTMessage(confirmTopic, String(setIntervalTopic) + "=" + String(interval));
+    }
+
+    if (isEqual(recievedTopic, theWallTopic)) {
+      if (payload == "on") {
+        turnOn(WALL_PIN);
+      } else {
+        turnOff(WALL_PIN);
+      }
     }
   }
 }
