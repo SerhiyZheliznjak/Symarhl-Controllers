@@ -10,29 +10,54 @@
 // RELAYS
 #define PUMP_PIN D1
 #define WALL_PIN D2
-#define STUDIO_PIN D5
-#define BATHROOM_PIN D6
-#define KIDSROOM_PIN D7
-#define BEDROOM_PIN D8
 
 //RELAY STATES
 #define ON LOW
 #define OFF HIGH
 
+
+// INDEXES
+const uint8_t STUDIO = 0;
+const uint8_t BATHROOM = 1;
+const uint8_t KIDSROOM = 2;
+const uint8_t BEDROOM = 3;
+
+const uint8_t ROOM_PINS[4] = {
+  D5,           // STUDIO_PIN,
+  D6,           // BATHROOM_PIN,
+  D7,           // KIDSROOM_PIN,
+  D8            // BEDROOM_PIN
+};
+
+const char roomNames[4][14] = {
+  "studio",
+  "bathroom",
+  "kidsroom",
+  "bedroom"
+};
+
 // VARIABLES
 float interval = 20000;
-float studioTemp = 21.5;
-float bathroomTemp = 21.5;
-float kidsroomTemp = 21.5;
-float bedroomTemp = 21.5;
 float hysteresis = 0.3;
+
+float desiredTemps[4] = {
+  21.5, // STUDIO
+  21.5, // BATHROOM
+  21.5, // KIDSROOM
+  21.5, // BEDROOM
+};
+
 // PRIVATE
 long previousTime = 0;
 // ONEWIRE TEMP SENSORS IDS
-const uint8_t STUDIO_ID[8] = {0x28, 0xFF, 0x76, 0x65, 0x71, 0x15, 0x02, 0x43};
-const uint8_t BATHROOM_ID[8] = {0x28, 0xFF, 0x91, 0xA3, 0x73, 0x15, 0x02, 0xB7};
-const uint8_t KIDSROOM_ID[8] = {0x28, 0xFF, 0xD2, 0x57, 0x71, 0x15, 0x01, 0xC2};
-const uint8_t BEDROOM_ID[8] = {0x28, 0xFF, 0x0D, 0x82, 0x73, 0x15, 0x02, 0xDE};
+
+const uint8_t (SENSOR_IDS[4])[8] = {
+  {0x28, 0xFF, 0x76, 0x65, 0x71, 0x15, 0x02, 0x43},  // STUDIO
+  {0x28, 0xFF, 0x91, 0xA3, 0x73, 0x15, 0x02, 0xB7},  // BATHROOM
+  {0x28, 0xFF, 0xD2, 0x57, 0x71, 0x15, 0x01, 0xC2},  // KIDSROOM
+  {0x28, 0xFF, 0x0D, 0x82, 0x73, 0x15, 0x02, 0xDE}   // BEDROOM
+};
+
 
 // NETWORK CREDENTIALS
 const char* LAN_SSID = WIFI_SSID;
@@ -44,10 +69,13 @@ const int MQTT_BROKER_PORT = MQTT_PORT;
 // TOPICS
 const char startTopic[] = "started";
 // READ
-const char studioTempTopic[] = "temp/studio";
-const char bathroomTempTopic[] = "temp/bathroom";
-const char kidsroomTempTopic[] = "temp/kidsroom";
-const char bedroomTempTopic[] = "temp/bedroom";
+const char roomTempTopics[4][14] = {
+  "temp/studio",
+  "temp/bathroom",
+  "temp/kidsroom",
+  "temp/bedroom"
+};
+
 const char powerTopic[] = "power";
 const char variablesTopic[] = "variables";
 // SET
@@ -57,10 +85,12 @@ const char confirmTopic[] = "set/confirmation";
 const char setHysteresisTopic[] = "set/hysteresis";
 const char setIntervalTopic[] = "set/interval";
 // ROOMS TEMP
-const char setStudioTempTopic[] = "set/studio";
-const char setBathroomTempTopic[] = "set/bathroom";
-const char setKidsroomTempTopic[] = "set/kidsroom";
-const char setBedroomTempTopic[] = "set/bedroom";
+const char setRoomTempTopics[4][14] = {
+  "set/studio",
+  "set/bathroom",
+  "set/kidsroom",
+  "set/bedroom"
+};
 
 OneWire oneWire(TS_PIN);
 DallasTemperature oneWireSensors(&oneWire);
@@ -95,34 +125,34 @@ void setup() {
 void setupRelayPins() {
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(WALL_PIN, OUTPUT);
-  pinMode (STUDIO_PIN, OUTPUT);
-  pinMode (BATHROOM_PIN, OUTPUT);
-  pinMode (KIDSROOM_PIN, OUTPUT);
-  pinMode (BEDROOM_PIN, OUTPUT);
+  pinMode (ROOM_PINS[STUDIO], OUTPUT);
+  pinMode (ROOM_PINS[BATHROOM], OUTPUT);
+  pinMode (ROOM_PINS[KIDSROOM], OUTPUT);
+  pinMode (ROOM_PINS[BEDROOM], OUTPUT);
 
   digitalWrite(PUMP_PIN, OFF);
   digitalWrite(WALL_PIN, OFF);
-  digitalWrite(STUDIO_PIN, OFF);
-  digitalWrite(BATHROOM_PIN, OFF);
-  digitalWrite(KIDSROOM_PIN, OFF);
-  digitalWrite(BEDROOM_PIN, OFF);
+  digitalWrite(ROOM_PINS[STUDIO], OFF);
+  digitalWrite(ROOM_PINS[BATHROOM], OFF);
+  digitalWrite(ROOM_PINS[KIDSROOM], OFF);
+  digitalWrite(ROOM_PINS[BEDROOM], OFF);
 }
 
 void demo() {
   delay(2000);
   digitalWrite(PUMP_PIN, ON);
-  digitalWrite(STUDIO_PIN, ON);
+  digitalWrite(ROOM_PINS[STUDIO], ON);
   delay(500);
-  digitalWrite(STUDIO_PIN, OFF);
-  digitalWrite(BATHROOM_PIN, ON);
+  digitalWrite(ROOM_PINS[STUDIO], OFF);
+  digitalWrite(ROOM_PINS[BATHROOM], ON);
   delay(500);
-  digitalWrite(BATHROOM_PIN, OFF);
-  digitalWrite(KIDSROOM_PIN, ON);
+  digitalWrite(ROOM_PINS[BATHROOM], OFF);
+  digitalWrite(ROOM_PINS[KIDSROOM], ON);
   delay(500);
-  digitalWrite(KIDSROOM_PIN, OFF);
-  digitalWrite(BEDROOM_PIN, ON);
+  digitalWrite(ROOM_PINS[KIDSROOM], OFF);
+  digitalWrite(ROOM_PINS[BEDROOM], ON);
   delay(500);
-  digitalWrite(BEDROOM_PIN, OFF);
+  digitalWrite(ROOM_PINS[BEDROOM], OFF);
   digitalWrite(WALL_PIN, ON);
   delay(500);
   digitalWrite(PUMP_PIN, OFF);
@@ -132,8 +162,9 @@ void demo() {
 void loop() {
   unsigned long currentTime = millis();
   if (currentTime - previousTime > interval) {
-    verifyMqttConnection();
     previousTime = currentTime;
+
+    verifyMqttConnection();
     heatingControl();
     sendPowerMessage();
     sendVariablesMessage();
@@ -142,25 +173,23 @@ void loop() {
 }
 
 boolean areAllPinsOff() {
-  return OFF == digitalRead(STUDIO_PIN) && OFF == digitalRead(BATHROOM_PIN) && OFF == digitalRead(KIDSROOM_PIN) && OFF == digitalRead(BEDROOM_PIN) && OFF == digitalRead(WALL_PIN);
+  boolean areAllRoomsOff = true;
+  for (uint8_t i = 0; i < 4; i++) {
+    areAllRoomsOff = areAllRoomsOff && digitalRead(ROOM_PINS[i]) == OFF;
+  }
+  return areAllRoomsOff && OFF == digitalRead(WALL_PIN);
 }
 
 void heatingControl() {
   oneWireSensors.requestTemperatures();
 
-  float currentStudioTemp = oneWireSensors.getTempC(STUDIO_ID);
-  controlRoomTemp(currentStudioTemp, STUDIO_PIN, studioTemp);
+  float currentRoomTemps[4];
+  for (uint8_t i = 0; i < 4; i++) {
+    currentRoomTemps[i] = oneWireSensors.getTempC(SENSOR_IDS[i]);
+    controlRoomTemp(currentRoomTemps[i], i);
+  }
 
-  float currentBathroomTemp = oneWireSensors.getTempC(BATHROOM_ID);
-  controlRoomTemp(currentBathroomTemp, BATHROOM_PIN, bathroomTemp);
-
-  float currentKidsroomTemp = oneWireSensors.getTempC(KIDSROOM_ID);
-  controlRoomTemp(currentKidsroomTemp, KIDSROOM_PIN, kidsroomTemp);
-
-  float currentBedroomTemp = oneWireSensors.getTempC(BEDROOM_ID);
-  controlRoomTemp(currentBedroomTemp, BEDROOM_PIN, bedroomTemp);
-
-  sendCurrentTemperatures(currentStudioTemp, currentBathroomTemp, currentKidsroomTemp, currentBedroomTemp);
+  sendCurrentTemperatures(currentRoomTemps);
 
   if (areAllPinsOff()) {
     turnOff(PUMP_PIN);
@@ -169,42 +198,37 @@ void heatingControl() {
   }
 }
 
-void sendCurrentTemperatures(float currentStudioTemp, float currentBathroomTemp, float currentKidsroomTemp, float currentBedroomTemp) {
-  sendMQTTMessage(studioTempTopic, String(currentStudioTemp));
-  sendMQTTMessage(bathroomTempTopic, String(currentBathroomTemp));
-  sendMQTTMessage(kidsroomTempTopic, String(currentKidsroomTemp));
-  sendMQTTMessage(bedroomTempTopic, String(currentBedroomTemp));
+void sendCurrentTemperatures(float currentRoomTemps[4]) {
+  for (uint8_t i = 0; i < 4; i++) {
+    sendMQTTMessage(roomTempTopics[i], String(currentRoomTemps[i]));
+  }
 }
 
-void controlRoomTemp(float roomTemp, uint8_t pin, float minTemp) {
-  if (roomTemp < minTemp) {
-    turnOn(pin);
+void controlRoomTemp(float roomTemp, uint8_t i) {
+  if (roomTemp < desiredTemps[i]) {
+    turnOn(ROOM_PINS[i]);
   }
 
-  if (roomTemp >= minTemp + hysteresis) {
-    turnOff(pin);
+  if (roomTemp >= desiredTemps[i] + hysteresis) {
+    turnOff(ROOM_PINS[i]);
   }
 }
 
 void sendPowerMessage() {
   String powerMessage = "pump=" + String(isOn(PUMP_PIN)) + ";";
   powerMessage += "wall=" + String(isOn(WALL_PIN)) + ";";
-  powerMessage += "studio=" + String(isOn(STUDIO_PIN)) + ";";
-  powerMessage += "bathroom=" + String(isOn(BATHROOM_PIN)) + ";";
-  powerMessage += "kidsroom=" + String(isOn(KIDSROOM_PIN)) + ";";
-  powerMessage += "bedroom=" + String(isOn(BEDROOM_PIN));
-
+  for (uint8_t i = 0; i < 4; i++) {
+    powerMessage += String(roomNames[i]) + "=" + String(isOn(ROOM_PINS[i])) + ";";
+  }
   sendMQTTMessage(powerTopic, powerMessage);
 }
 
 void sendVariablesMessage() {
-  String response = String(setStudioTempTopic) + "=" + String(studioTemp) + ";";
-  response += String(setBathroomTempTopic) + "=" + String(bathroomTemp) + ";";
-  response += String(setKidsroomTempTopic) + "=" + String(kidsroomTemp) + ";";
-  response += String(setBedroomTempTopic) + "=" + String(bedroomTemp) + ";";
-  response += String(setHysteresisTopic) + "=" + String(hysteresis) + ";";
-  response += String(setIntervalTopic) + "=" + String(interval);
-
+  String response = "interval=" + String(interval) + ";";
+  response += "hysteresis=" + String(hysteresis) + ";";
+  for (uint8_t i = 0; i < 4; i++) {
+    response += String(roomNames[i]) + "=" + String(desiredTemps[i]) + ";";
+  }
   sendMQTTMessage(variablesTopic, response);
 }
 
@@ -246,34 +270,21 @@ void listenMqtt() {
       payload += (char)mqttClient.read();
     }
 
-    if (isEqual(recievedTopic, setStudioTempTopic)) {
-      studioTemp = payload.toFloat();
-      sendMQTTMessage(confirmTopic, String(setStudioTempTopic) + "=" + String(studioTemp));
-    }
-
-    if (isEqual(recievedTopic, setBathroomTempTopic)) {
-      bathroomTemp = payload.toFloat();
-      sendMQTTMessage(confirmTopic, String(setBathroomTempTopic) + "=" + String(bathroomTemp));
-    }
-
-    if (isEqual(recievedTopic, setKidsroomTempTopic)) {
-      kidsroomTemp = payload.toFloat();
-      sendMQTTMessage(confirmTopic, String(setKidsroomTempTopic) + "=" + String(kidsroomTemp));
-    }
-
-    if (isEqual(recievedTopic, setBedroomTempTopic)) {
-      bedroomTemp = payload.toFloat();
-      sendMQTTMessage(confirmTopic, String(setBedroomTempTopic) + "=" + String(bedroomTemp));
+    for (uint8_t i = 0; i < 4; i++) {
+      if (isEqual(recievedTopic, setRoomTempTopics[i])) {
+        desiredTemps[i] = payload.toFloat();
+        sendMQTTMessage(confirmTopic, String(roomNames[i]) + "=" + String(desiredTemps[i]));
+      }
     }
 
     if (isEqual(recievedTopic, setHysteresisTopic)) {
       hysteresis = payload.toFloat();
-      sendMQTTMessage(confirmTopic, String(setHysteresisTopic) + "=" + String(hysteresis));
+      sendMQTTMessage(confirmTopic, "hysteresis=" + String(hysteresis));
     }
 
     if (isEqual(recievedTopic, setIntervalTopic)) {
       interval = payload.toInt();
-      sendMQTTMessage(confirmTopic, String(setIntervalTopic) + "=" + String(interval));
+      sendMQTTMessage(confirmTopic, "interval=" + String(interval));
     }
 
     if (isEqual(recievedTopic, theWallTopic)) {
