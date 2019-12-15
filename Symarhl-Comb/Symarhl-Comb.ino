@@ -170,6 +170,7 @@ void heatingControl() {
 }
 
 void sendCurrentTemperatures(float currentStudioTemp, float currentBathroomTemp, float currentKidsroomTemp, float currentBedroomTemp) {
+  sendMQTTMessage(studioTempTopic, String(currentStudioTemp));
   sendMQTTMessage(bathroomTempTopic, String(currentBathroomTemp));
   sendMQTTMessage(kidsroomTempTopic, String(currentKidsroomTemp));
   sendMQTTMessage(bedroomTempTopic, String(currentBedroomTemp));
